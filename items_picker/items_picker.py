@@ -1,13 +1,19 @@
 import numpy as np
 import cv2
 from utils import RSWrapper
-
+from open3d.visualization import Visualizer
+from open3d.geometry import PointCloud
+from open3d.utility import Vector3dVector
 
 if __name__ == '__main__':
     rs_wrapper = RSWrapper()
-    for depth_image, color_image in rs_wrapper.iterate_over_frames():
-        rainbow_colorized = cv2.cvtColor(cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_RAINBOW), cv2.COLOR_BGR2RGB)
-        cv2.imshow('Depth', rainbow_colorized)
-        cv2.imshow('Color', color_image)
+    vis = Visualizer()
+    vis.create_window()
+    for pcd, color_image in rs_wrapper.iterate_over_frames():
+        vis.add_geometry(pcd)
+        vis.update_geometry(pcd)
+        vis.poll_events()
+        vis.update_renderer()
+        cv2.imshow("color", color_image)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
