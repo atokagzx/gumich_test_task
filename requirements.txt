@@ -1,0 +1,2 @@
+opencv-contrib-python==4.9.0.80
+open3d==0.18.0
