@@ -24,9 +24,6 @@ if __name__ == '__main__':
         mask, ids = clipseg.segment(color,'object', 0.1)
         clipseg_mask = np.where(mask < 50, 0, 255).astype(np.uint8)
         sam_mask = sam.segment(color, clipseg_mask)
-        cv2.imshow('mask', sam_mask)
-        cv2.waitKey(0)
-
         masked_pcd = rs_wrapper.rgbd_to_pointcloud(color, depth, sam_mask)
         original_pcd = rs_wrapper.rgbd_to_pointcloud(color, depth)
 
@@ -39,5 +36,5 @@ if __name__ == '__main__':
         logger.info(f"found {len(results)} planes")
         for i, result in enumerate(results):
             logger.info(f'picking point "{i}" TF:\n{result.tf_matrix}\ndims: {result.dims}')
-        o3d.visualization.draw_geometries([masked_pcd] + results_visual)
+        o3d.visualization.draw_geometries([original_pcd] + results_visual)
         
