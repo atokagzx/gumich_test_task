@@ -23,11 +23,11 @@ class RSWrapper:
             yield color, depth
 
 
-    def rgbd_to_pointcloud(self, color, depth, mask):
+    def rgbd_to_pointcloud(self, color, depth, mask = None):
         # apply mask to depth
         depth = np.array(depth)
-        print(depth.shape, mask.shape)
-        depth = np.where(mask == 0, 0, depth)
+        if mask is not None:
+            depth = np.where(mask == 0, 0, depth)
         depth = o3d.geometry.Image(depth)
         color = o3d.geometry.Image(color)
         im_rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, convert_rgb_to_intensity=False)
