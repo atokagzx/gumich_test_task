@@ -1,31 +1,51 @@
-import pyrealsense2 as rs
+import open3d as o3d
+import cv2
 import numpy as np
 import logging
 
 
 class RSWrapper:
-    def __init__(self):
+    def __init__(self, rs_config):
         self._logger = logging.getLogger("rs_wrapper")
-        self._pipeline = rs.pipeline()
-        self._config = rs.config()
-        self._config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-        self._config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-        self._profile = self._pipeline.start(self._config)
-        self._depth_sensor = self._profile.get_device().first_depth_sensor()
-        self._depth_scale = self._depth_sensor.get_depth_scale()
-        self._align = rs.align(rs.stream.color)
+        self._rs_cfg = o3d.t.io.RealSenseSensorConfig(rs_config)
+
+        self._rs = o3d.t.io.RealSenseSensor()
+        self._rs.init_sensor(self._rs_cfg, 0)
+        self._intrinsics = self._rs.get_metadata().intrinsics
+        self._rs.start_capture(True)
 
     
     def iterate_over_frames(self):
         while True:
-            frames = self._pipeline.wait_for_frames()
-            aligned_frames = self._align.process(frames)
-            depth_frame = aligned_frames.get_depth_frame()
-            color_frame = aligned_frames.get_color_frame()
-            if not depth_frame or not color_frame:
-                self._logger.warning("frames are empty")
-                continue
-            depth_image = np.asanyarray(depth_frame.get_data())
-            color_image = np.asanyarray(color_frame.get_data())
-            yield depth_image, color_image
-            
+            im_rgbd = self._rs.capture_frame(True, True) 
+            depth = o3d.geometry.Image(im_rgbd.depth.cpu())
+            color = o3d.geometry.Image(im_rgbd.color)
+            yield color, depth
+
+
+    def rgbd_to_pointcloud(self, color, depth, mask = None):
+        # apply mask to depth
+        depth = np.array(depth)
+        if mask is not None:
+            depth = np.where(mask == 0, 0, depth)
+        depth = o3d.geometry.Image(depth)
+        color = o3d.geometry.Image(color)
+        im_rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, convert_rgb_to_intensity=False)
+        pcd = o3d.geometry.PointCloud.create_from_rgbd_image(im_rgbd, self._intrinsics)
+        return pcd
+    
+
+if __name__ == '__main__':
+    rs_config ={
+        "serial": "f1270667",
+        "color_format": "RS2_FORMAT_RGB8",
+        "color_resolution": "640,480",
+        "depth_format": "RS2_FORMAT_Z16",
+        "depth_resolution": "320,240",
+        "fps": "30",
+        "visual_preset": "RS2_L500_VISUAL_PRESET_SHORT_RANGE"
+    }
+    rs_wrapper = RSWrapper(rs_config)
+    for color, depth in rs_wrapper.iterate_over_frames():
+        pcd = rs_wrapper.rgbd_to_pointcloud(color, depth)
+        o3d.visualization.draw_geometries([pcd])
